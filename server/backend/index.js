@@ -23,7 +23,8 @@ mongoose.connect(process.env.MONGO_URI)
 app.use("/api/users", userRoutes);
 
 // ✅ Keep track of notified students
-let notified = {}; // { regNo: true }
+notified = {}
+ // { regNo: true }
 
 // ✅ Queue for students to process
 let processingQueue = [];
@@ -32,25 +33,28 @@ let processingQueue = [];
 async function processBatchParallel(batch) {
   console.log(`🚀 Processing batch of ${batch.length} students in parallel`);
 
-  const promises = batch.map(async (student) => {
+  const promises = batch.map(async ({ student, result }) => {
     try {
       console.log(`🔍 Processing ${student.name} (${student.regNo})`);
 
-      const result = await fetchResult(student.regNo, student.dob, student.currentSem);
-
       if (result && result.subjects?.length) {
+        // Format result details
         const formatted = result.subjects.map(r =>
           `${r.sem} | ${r.code} | ${r.subject} | ${r.grade} (${r.result})`
         ).join("\n");
 
         const message = `🎓 RESULT PUBLISHED\n👤 ${student.name} (${student.regNo})\n📘 Semester: ${student.currentSem}\n📊 CGPA: ${result.cgpa}\n\n${formatted}`;
 
+        // Send Telegram notification
         await sendTelegramMessage(message);
 
+        // Send Email
         const emailHtml = require("./emialHtml")(result);
         await sendEmail(student.email, "🎓 Your Result is Published", emailHtml);
 
-        notified[student.regNo] = true;
+        const key = `${student.regNo}_${student.currentSem}`;
+        notified[key] = true;
+
         console.log(`✅ Notification sent for ${student.name}`);
       } else {
         console.log(`⏳ No result for ${student.name}`);
@@ -61,7 +65,7 @@ async function processBatchParallel(batch) {
     }
   });
 
-  // Run all student promises and wait for all to settle
+  // Wait until all students in this batch are processed
   await Promise.allSettled(promises);
   console.log(`✅ Batch of ${batch.length} students completed`);
 }
@@ -72,27 +76,48 @@ cron.schedule("*/2 * * * *", async () => {
 
   const students = await User.find();
 
-  // Quick check: filter students not notified and not already in queue
-  for (const student of students) {
-    if (notified[student.regNo] || processingQueue.includes(student)) {
-      continue;
-    }
+  // ✅ Quick check in parallel batches of 5
+  const BATCH_SIZE = 5;
 
-    try {
-      const result = await fetchResult(student.regNo, student.dob, student.currentSem);
+  for (let i = 0; i < students.length; i += BATCH_SIZE) {
+    const batch = students.slice(i, i + BATCH_SIZE);
 
-      if (result && result.subjects?.length) {
-        processingQueue.push(student);
-      }
-    } catch (err) {
-      console.error(`❌ Quick check failed for ${student.name}:`, err.message);
-    }
+    await Promise.allSettled(
+      batch.map(async (student) => {
+        const key = `${student.regNo}_${student.currentSem}`;
+
+        if (notified[key] || processingQueue.find((s) => `${s.student.regNo}_${s.student.currentSem}` === key)) {
+          return; // already processed or queued for this sem
+        }
+
+        try {
+          const result = await fetchResult(
+            student.regNo,
+            student.dob,
+            student.currentSem
+          );
+
+          if (result && result.subjects?.length) {
+            processingQueue.push({ student, result }); // ✅ store both
+
+            if (student.currentSem < 8) {
+              await User.updateOne(
+                { regNo: student.regNo },
+                { $set: { currentSem: student.currentSem + 1 } }
+              );
+            }
+          }
+        } catch (err) {
+          console.error(`❌ Quick check failed for ${student.name}:`, err.message);
+        }
+      })
+    );
   }
 
-  // Process queue in parallel batches of 5–10
+  // ✅ Process queue in parallel batches of 5
   while (processingQueue.length > 0) {
-    const batch = processingQueue.splice(0, 5); // 5 students per batch
-    await processBatchParallel(batch);
+    const batch = processingQueue.splice(0, BATCH_SIZE);
+    await processBatchParallel(batch); // your existing function
   }
 });
 
