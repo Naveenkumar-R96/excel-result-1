@@ -1,6 +1,5 @@
 require("dotenv").config();
 
-
 const express = require("express");
 const cors = require("cors");
 const cron = require("node-cron");
@@ -23,24 +22,20 @@ mongoose.connect(process.env.MONGO_URI)
 
 app.use("/api/users", userRoutes);
 
+// ✅ Keep track of notified students
 let notified = {}; // { regNo: true }
 
-// ✅ Cron job every 2 minutes
-cron.schedule("*/2 * * * *", async () => {
-  console.log(`[${new Date().toLocaleString()}] 🕒 🟢 Cron job running...`);
+// ✅ Queue for students to process
+let processingQueue = [];
 
-  const students = await User.find();
+// ✅ Function to process a batch of students in parallel safely
+async function processBatchParallel(batch) {
+  console.log(`🚀 Processing batch of ${batch.length} students in parallel`);
 
-  for (const student of students) {
+  const promises = batch.map(async (student) => {
     try {
-      console.log(`🔍 Checking result for ${student.name} (${student.regNo})`);
+      console.log(`🔍 Processing ${student.name} (${student.regNo})`);
 
-      if (notified[student.regNo]) {
-        console.log(`🧠 Skipping ${student.name} - already notified`);
-        continue;
-      }
-
-      // 🔑 Call scraper
       const result = await fetchResult(student.regNo, student.dob, student.currentSem);
 
       if (result && result.subjects?.length) {
@@ -62,19 +57,50 @@ cron.schedule("*/2 * * * *", async () => {
       }
 
     } catch (err) {
-      console.error(`❌ Error for ${student.name}:`, err.message);
+      console.error(`❌ Error processing ${student.name}:`, err.message);
+    }
+  });
+
+  // Run all student promises and wait for all to settle
+  await Promise.allSettled(promises);
+  console.log(`✅ Batch of ${batch.length} students completed`);
+}
+
+// ✅ Cron job: check every 2 minutes for new results
+cron.schedule("*/2 * * * *", async () => {
+  console.log(`[${new Date().toLocaleString()}] 🕒 Cron job running...`);
+
+  const students = await User.find();
+
+  // Quick check: filter students not notified and not already in queue
+  for (const student of students) {
+    if (notified[student.regNo] || processingQueue.includes(student)) {
+      continue;
     }
 
-    console.log(`⏳ Waiting before next student...`);
-    await new Promise((resolve) => setTimeout(resolve, 3000));
+    try {
+      const result = await fetchResult(student.regNo, student.dob, student.currentSem);
+
+      if (result && result.subjects?.length) {
+        processingQueue.push(student);
+      }
+    } catch (err) {
+      console.error(`❌ Quick check failed for ${student.name}:`, err.message);
+    }
+  }
+
+  // Process queue in parallel batches of 5–10
+  while (processingQueue.length > 0) {
+    const batch = processingQueue.splice(0, 5); // 5 students per batch
+    await processBatchParallel(batch);
   }
 });
 
-// ✅ Self-ping (for later when you deploy, safe to leave it)
+// ✅ Self-ping to keep service awake
 setInterval(() => {
-  fetch("http://localhost:3001") // local dev
-    .then(() => console.log("🔁 Self-ping sent to keep service awake"))
-    .catch((err) => console.error("⚠️ Self-ping failed:", err.message));
+  fetch("http://localhost:3001")
+    .then(() => console.log("🔁 Self-ping sent"))
+    .catch(err => console.error("⚠️ Self-ping failed:", err.message));
 }, 5 * 60 * 1000);
 
 app.get("/", (_, res) => res.send("✅ Result checker is running"));

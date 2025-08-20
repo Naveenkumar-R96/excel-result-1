@@ -1,11 +1,10 @@
 const { chromium } = require("playwright");
-const playwright = require("playwright");
 
 async function fetchResult(registerNo, dob, expectedSem) {
-  browser = await playwright.chromium.launch({
+  const browser = await chromium.launch({
     headless: true,
     executablePath: "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe" // Windows path
-  }); // <- simple
+  });
   const context = await browser.newContext();
   const page = await context.newPage();
 
@@ -30,7 +29,7 @@ async function fetchResult(registerNo, dob, expectedSem) {
       await browser.close();
       return null;
     }
-    
+
     const frame = await frameHandle.contentFrame(); // initialize AFTER frameHandle exists
     if (!frame) {
       console.log("❌ Could not get content from iframe");
@@ -38,8 +37,7 @@ async function fetchResult(registerNo, dob, expectedSem) {
       return null;
     }
     
-    // Now frame is safe to use
-    console.log(await frame.content()); 
+   
 
  
 
@@ -72,6 +70,9 @@ async function fetchResult(registerNo, dob, expectedSem) {
       console.log(`📭 Semester ${expectedSem} result not yet published.`);
       await browser.close();
       return null;
+    }
+    if(expectedResults.length>=1){
+      console.log(`📊 Found ${expectedResults.length} subjects for Semester `);
     }
 
     const totalPoints = expectedResults.reduce((acc, row) => acc + parseFloat(row.credit) * parseFloat(row.point), 0);
