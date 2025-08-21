@@ -1,6 +1,6 @@
 const { chromium } = require("playwright");
 
-async function fetchResult(registerNo, dob, expectedSem) {
+async function fetchResult(registerNo, dob, expectedSem, studentName) {
   const browser = await chromium.launch({
     headless: true,
     executablePath: "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe" // Windows path
@@ -13,7 +13,7 @@ async function fetchResult(registerNo, dob, expectedSem) {
     await page.goto("http://103.105.40.112", { timeout: 60000 });
     console.log("✅ Homepage loaded");
 
-    console.log("🔐 Clicking Student Login...");
+    console.log(`🔐 Clicking Student Login... for ${studentName}`);
     await page.click('a[href="/students/"]');
     await page.waitForLoadState("domcontentloaded");
 
@@ -67,12 +67,12 @@ async function fetchResult(registerNo, dob, expectedSem) {
     const expectedResults = subjectRows.filter(r => parseInt(r.sem) === parseInt(expectedSem));
 
     if (expectedResults.length === 0) {
-      console.log(`📭 Semester ${expectedSem} result not yet published.`);
+      console.log(`📭 Semester ${expectedSem} result not yet published. for${studentName}`);
       await browser.close();
       return null;
     }
     if(expectedResults.length>=1){
-      console.log(`📊 Found ${expectedResults.length} subjects for Semester `);
+      console.log(`📊 Found ${expectedResults.length} subjects for Semester for${studentName}`);
     }
 
     const totalPoints = expectedResults.reduce((acc, row) => acc + parseFloat(row.credit) * parseFloat(row.point), 0);

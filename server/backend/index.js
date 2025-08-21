@@ -23,8 +23,8 @@ mongoose.connect(process.env.MONGO_URI)
 app.use("/api/users", userRoutes);
 
 // ✅ Keep track of notified students
-notified = {}
- // { regNo: true }
+
+// { regNo: true }
 
 // ✅ Queue for students to process
 let processingQueue = [];
@@ -53,7 +53,20 @@ async function processBatchParallel(batch) {
         await sendEmail(student.email, "🎓 Your Result is Published", emailHtml);
 
         const key = `${student.regNo}_${student.currentSem}`;
-        notified[key] = true;
+        console.log(`🔔 updating expected from ${student.currentSem}`);
+
+        await User.updateOne(
+
+          { regNo: student.regNo },
+          {
+            $set: {
+              currentSem: student.currentSem + 1
+            },
+            $push: { notifiedSemesters: student.currentSem }
+          }
+        );
+        
+        console.log(`updated expected semester to ${student.currentSem}`);
 
         console.log(`✅ Notification sent for ${student.name}`);
       } else {
@@ -75,49 +88,52 @@ cron.schedule("*/2 * * * *", async () => {
   console.log(`[${new Date().toLocaleString()}] 🕒 Cron job running...`);
 
   const students = await User.find();
-
-  // ✅ Quick check in parallel batches of 5
   const BATCH_SIZE = 5;
 
   for (let i = 0; i < students.length; i += BATCH_SIZE) {
     const batch = students.slice(i, i + BATCH_SIZE);
-
     await Promise.allSettled(
       batch.map(async (student) => {
-        const key = `${student.regNo}_${student.currentSem}`;
+        if (typeof student.currentSem !== "number" || student.currentSem <= 0) {
+          console.log("Invalid expected semester input.");
+          return;
+        }
 
-        if (notified[key] || processingQueue.find((s) => `${s.student.regNo}_${s.student.currentSem}` === key)) {
-          return; // already processed or queued for this sem
+        if (student.currentSem > 8) {
+          console.log("Expected semester exceeds maximum allowed.");
+          return;
+        }
+
+        // prevent double queueing
+        if (processingQueue.find(
+          (s) => s.student.regNo === student.regNo && s.student.currentSem === student.currentSem
+        )) {
+          return;
         }
 
         try {
           const result = await fetchResult(
             student.regNo,
             student.dob,
-            student.currentSem
+            student.currentSem,
+            student.name,
           );
 
           if (result && result.subjects?.length) {
-            processingQueue.push({ student, result }); // ✅ store both
-
-            if (student.currentSem < 8) {
-              await User.updateOne(
-                { regNo: student.regNo },
-                { $set: { currentSem: student.currentSem + 1 } }
-              );
-            }
+            processingQueue.push({ student, result });
           }
         } catch (err) {
           console.error(`❌ Quick check failed for ${student.name}:`, err.message);
         }
       })
     );
+
   }
 
   // ✅ Process queue in parallel batches of 5
   while (processingQueue.length > 0) {
     const batch = processingQueue.splice(0, BATCH_SIZE);
-    await processBatchParallel(batch); // your existing function
+    await processBatchParallel(batch);
   }
 });
 
@@ -129,4 +145,6 @@ setInterval(() => {
 }, 5 * 60 * 1000);
 
 app.get("/", (_, res) => res.send("✅ Result checker is running"));
-app.listen(3001, () => console.log("🚀 Backend running on port 3001"));
+const PORT = process.env.PORT || 3001;
+app.listen(PORT, () => console.log(`🚀 Backend running on port ${PORT}`));
+
