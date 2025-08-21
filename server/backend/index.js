@@ -15,6 +15,9 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+const path = require('path')
+const fs = require('fs');
+
 // ✅ Connect to MongoDB
 mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log("✅ MongoDB connected"))
@@ -37,18 +40,24 @@ async function processBatchParallel(batch) {
     try {
       console.log(`🔍 Processing ${student.name} (${student.regNo})`);
 
-      if (result && result.subjects?.length) {
-        // Format result details
-        const formatted = result.subjects.map(r =>
-          `${r.sem} | ${r.code} | ${r.subject} | ${r.grade} (${r.result})`
-        ).join("\n");
+      if (result && result.allSemesters?.length) {
+        // Format subject details semester-wise
+        const formattedSubjects = Object.entries(result.allSemesters).map(([sem, subjects]) => {
+          const subjectLines = subjects.map(r =>
+            `   ${r.code} | ${r.subject} | ${r.grade} (${r.result})`
+          ).join("\n");
+        
+          return `📘 Semester ${sem}\n${subjectLines}\n   CGPA: ${result.semesterWiseCGPA[sem] || "N/A"}\n`;
+        }).join("\n");
+        
 
-        const message = `🎓 RESULT PUBLISHED\n👤 ${student.name} (${student.regNo})\n📘 Semester: ${student.currentSem}\n📊 CGPA: ${result.cgpa}\n\n${formatted}`;
+        // Final message
+        const message = `🎓 RESULT PUBLISHED\n👤 ${student.name} (${student.regNo})\n\n${formattedSubjects}\n📊 Overall CGPA: ${result.overallCGPA}`;
 
-        // Send Telegram notification
+        // Send Telegram
         await sendTelegramMessage(message);
 
-        // Send Email
+        // Send Email (with HTML version)
         const emailHtml = require("./emialHtml")(result);
         await sendEmail(student.email, "🎓 Your Result is Published", emailHtml);
 
@@ -65,7 +74,7 @@ async function processBatchParallel(batch) {
             $push: { notifiedSemesters: student.currentSem }
           }
         );
-        
+
         console.log(`updated expected semester to ${student.currentSem}`);
 
         console.log(`✅ Notification sent for ${student.name}`);
@@ -119,7 +128,7 @@ cron.schedule("*/2 * * * *", async () => {
             student.name,
           );
 
-          if (result && result.subjects?.length) {
+          if (result && Object.keys(result.allSemesters || {}).length > 0) {
             processingQueue.push({ student, result });
           }
         } catch (err) {

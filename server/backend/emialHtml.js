@@ -1,9 +1,13 @@
 const createEmailHTML = (result) => {
-    return `
-      <h2>🎓 Result Published</h2>
-      <p><strong>📘 Semester:</strong> ${result.semester}</p>
-      <p><strong>📊 CGPA:</strong> ${result.cgpa}</p>
-      <table border="1" cellpadding="8" cellspacing="0" style="border-collapse: collapse; margin-top: 15px; width: 100%;">
+  return `
+    <h2>🎓 Result Published</h2>
+    <p><strong>👤 Student:</strong> ${result.name} (${result.regNo})</p>
+    
+    ${result.allSemesters.map(sem => `
+      <h3>📘 Semester ${sem.semester}</h3>
+      <p><strong>📊 CGPA:</strong> ${sem.cgpa}</p>
+      <table border="1" cellpadding="8" cellspacing="0" 
+        style="border-collapse: collapse; margin-top: 15px; width: 100%;">
         <thead>
           <tr style="background-color:rgb(124, 247, 153); text-align: left;">
             <th>Subject Code</th>
@@ -15,7 +19,7 @@ const createEmailHTML = (result) => {
           </tr>
         </thead>
         <tbody>
-          ${result.subjects.map(subject => `
+          ${sem.subjects.map(subject => `
             <tr>
               <td>${subject.code}</td>
               <td>${subject.subject}</td>
@@ -27,7 +31,10 @@ const createEmailHTML = (result) => {
           `).join("")}
         </tbody>
       </table>
-    `;
+    `).join("<br/>")}
+     <hr/>
+    <h3>🏆 Overall CGPA: ${result.overallCGPA}</h3>
+  `;
 };
 
 module.exports = createEmailHTML;

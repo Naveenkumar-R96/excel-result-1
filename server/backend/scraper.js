@@ -1,9 +1,15 @@
 const { chromium } = require("playwright");
 
 async function fetchResult(registerNo, dob, expectedSem, studentName) {
+  const isRender = process.env.RENDER !== undefined;
+
   const browser = await chromium.launch({
     headless: true,
-    executablePath: "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe" // Windows path
+    ...(isRender
+      ? {} // On Render, use bundled Chromium (no executablePath)
+      : {
+          executablePath: "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe", // Windows local Chrome
+        }),
   });
   const context = await browser.newContext();
   const page = await context.newPage();
@@ -30,16 +36,12 @@ async function fetchResult(registerNo, dob, expectedSem, studentName) {
       return null;
     }
 
-    const frame = await frameHandle.contentFrame(); // initialize AFTER frameHandle exists
+    const frame = await frameHandle.contentFrame();
     if (!frame) {
       console.log("❌ Could not get content from iframe");
       await browser.close();
       return null;
     }
-    
-   
-
- 
 
     console.log("📄 Extracting rows...");
     const allRows = await frame.evaluate(() => {
@@ -58,34 +60,63 @@ async function fetchResult(registerNo, dob, expectedSem, studentName) {
       });
     });
 
+    // Clean valid rows
     const subjectRows = allRows.filter(r =>
       r.subject && r.code && r.grade &&
       !isNaN(parseFloat(r.credit)) &&
       !isNaN(parseFloat(r.point))
     );
 
-    const expectedResults = subjectRows.filter(r => parseInt(r.sem) === parseInt(expectedSem));
+    // Filter only up to expected semester
+    const filteredResults = subjectRows.filter(
+      r => parseInt(r.sem) <= parseInt(expectedSem)
+    );
 
-    if (expectedResults.length === 0) {
-      console.log(`📭 Semester ${expectedSem} result not yet published. for${studentName}`);
+    if (filteredResults.length === 0) {
+      console.log(`📭 Semester ${expectedSem} result not yet published for ${studentName}`);
       await browser.close();
       return null;
     }
-    if(expectedResults.length>=1){
-      console.log(`📊 Found ${expectedResults.length} subjects for Semester for${studentName}`);
+
+    // Group by semester
+    const semesters = {};
+    filteredResults.forEach(r => {
+      const sem = parseInt(r.sem);
+      if (!semesters[sem]) semesters[sem] = [];
+      semesters[sem].push(r);
+    });
+
+    // Calculate CGPA per semester + overall
+    const semesterCGPAs = {};
+    let overallPoints = 0;
+    let overallCredits = 0;
+
+    for (const sem in semesters) {
+      const semResults = semesters[sem];
+      const semPoints = semResults.reduce(
+        (acc, row) => acc + parseFloat(row.credit) * parseFloat(row.point),
+        0
+      );
+      const semCredits = semResults.reduce(
+        (acc, row) => acc + parseFloat(row.credit),
+        0
+      );
+
+      const semCGPA = semCredits === 0 ? 0 : (semPoints / semCredits).toFixed(2);
+      semesterCGPAs[sem] = semCGPA;
+
+      overallPoints += semPoints;
+      overallCredits += semCredits;
     }
 
-    const totalPoints = expectedResults.reduce((acc, row) => acc + parseFloat(row.credit) * parseFloat(row.point), 0);
-    const totalCredits = expectedResults.reduce((acc, row) => acc + parseFloat(row.credit), 0);
-    const cgpa = totalCredits === 0 ? 0 : (totalPoints / totalCredits).toFixed(2);
-
-    console.log(`🎓 CGPA for Semester ${expectedSem}: ${cgpa}`);
+    const overallCGPA = overallCredits === 0 ? 0 : (overallPoints / overallCredits).toFixed(2);
 
     await browser.close();
+
     return {
-      cgpa,
-      semester: expectedSem,
-      subjects: expectedResults
+      semesterWiseCGPA: semesterCGPAs,
+      overallCGPA,
+      allSemesters: semesters
     };
 
   } catch (err) {
