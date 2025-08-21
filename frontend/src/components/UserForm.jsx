@@ -16,6 +16,9 @@ const UserForm = ({ setShowForm }) => {
 
   const validateDOB = (dob) => /^\d{2}-\d{2}-\d{4}$/.test(dob);
 
+  const validateRegNo = (regNo) => /^7309\d{2}106\d{3}$/.test(regNo);
+
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData({
@@ -31,6 +34,11 @@ const UserForm = ({ setShowForm }) => {
     e.preventDefault();
     if (!validateDOB(formData.dob)) {
       setError("❌ DOB must be in format DD-MM-YYYY");
+      return;
+    }
+
+    if (!validateRegNo(formData.regNo)) {
+      setError("❌ Register Number must follow format: 7309YY106XXX");
       return;
     }
 
@@ -111,7 +119,7 @@ const BASE_URL =
           >
            {isSubmitting ? "Submitting..." : "Register"}
           </button>
-        </form>
+        </form> 
 
         {error && (
           <p className="mt-4 text-center text-red-600 font-medium">{error}</p>
