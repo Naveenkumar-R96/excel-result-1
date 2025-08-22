@@ -37,6 +37,10 @@ async function fetchResult(registerNo, dob, expectedSem, studentName) {
     }
 
     const frame = await frameHandle.contentFrame();
+    if (await page.$("iframe") === null) {
+      console.log(`❌ Login failed or no result for ${studentName}`);
+      return null;
+    }
     if (!frame) {
       console.log("❌ Could not get content from iframe");
       await browser.close();
@@ -44,47 +48,114 @@ async function fetchResult(registerNo, dob, expectedSem, studentName) {
     }
 
     console.log("📄 Extracting rows...");
+    
+    // 🔍 DEBUG: First, let's see what's actually on the page
+    const debugInfo = await frame.evaluate(() => {
+      const tables = document.querySelectorAll("table");
+      const targetTable = document.querySelector("table.tblBRDefault");
+      
+      return {
+        totalTables: tables.length,
+        hasTargetTable: !!targetTable,
+        tableClasses: Array.from(tables).map(t => t.className),
+        tableRowCounts: Array.from(tables).map(t => t.querySelectorAll("tr").length),
+        // Get first few rows of data to see structure
+        sampleData: targetTable ? Array.from(targetTable.querySelectorAll("tr")).slice(0, 5).map(row => {
+          return Array.from(row.querySelectorAll("td, th")).map(cell => cell.innerText.trim());
+        }) : null
+      };
+    });
+    
+
     const allRows = await frame.evaluate(() => {
       const rows = Array.from(document.querySelectorAll("table.tblBRDefault tr"));
-      return rows.slice(1).map(row => {
+      console.log(`Found ${rows.length} total rows`);
+      
+      return rows.slice(1).map((row, index) => {
         const cols = row.querySelectorAll("td");
-        return {
-          sem: cols[0]?.innerText.trim(),
-          code: cols[1]?.innerText.trim(),
-          subject: cols[2]?.innerText.trim(),
-          credit: cols[3]?.innerText.trim(),
-          grade: cols[4]?.innerText.trim(),
-          point: cols[5]?.innerText.trim(),
-          result: cols[6]?.innerText.trim()
+        const rowData = {
+          rowIndex: index,
+          totalCols: cols.length,
+          sem: cols[0]?.innerText.trim() || "",
+          code: cols[1]?.innerText.trim() || "",
+          subject: cols[2]?.innerText.trim() || "",
+          credit: cols[3]?.innerText.trim() || "",
+          grade: cols[4]?.innerText.trim() || "",
+          point: cols[5]?.innerText.trim() || "",
+          result: cols[6]?.innerText.trim() || "",
+          // Debug: get all cell contents
+          allCells: Array.from(cols).map(cell => cell.innerText.trim())
         };
+        
+        // Log first few rows for debugging
+        if (index < 3) {
+          console.log(`Row ${index}:`, rowData);
+        }
+        
+        return rowData;
       });
     });
 
-    // Clean valid rows
-    const subjectRows = allRows.filter(r =>
-      r.subject && r.code && r.grade &&
-      !isNaN(parseFloat(r.credit)) &&
-      !isNaN(parseFloat(r.point))
-    );
+    console.log(`📊 Extracted ${allRows.length} data rows for ${studentName}`);
+    
 
-    // Filter only up to expected semester
-    const filteredResults = subjectRows.filter(
-      r => parseInt(r.sem) <= parseInt(expectedSem)
-    );
+    // 🔍 Better semester parsing with debugging
+    const availableSems = allRows
+      .map((r, index) => {
+        const semStr = r.sem;
+        const semNum = parseInt(semStr);
+        return semNum;
+      })
+      .filter(sem => !isNaN(sem)); // Filter out NaN values
 
-    if (filteredResults.length === 0) {
-      console.log(`📭 Semester ${expectedSem} result not yet published for ${studentName}`);
+    console.log(`📊 Available semesters for ${studentName}:`, availableSems);
+    
+    const maxSem = availableSems.length > 0 ? Math.max(...availableSems) : NaN;
+    console.log(`📊 Max available semester: ${maxSem}, Expected: ${expectedSem}`);
+
+    if (isNaN(maxSem)) {
+      console.log(`⚠️  No valid semester data found for ${studentName}`);
+      console.log(`📋 Sample rows:`, allRows.slice(0, 3));
       await browser.close();
       return null;
     }
+    if (maxSem < expectedSem) {
+      console.log(`📭 Semester ${expectedSem} not yet published for ${studentName}`);
+      await browser.close();
+      
+      // ✅ Return a specific object to indicate "semester not published yet"
+      return {
+        status: 'not_published',
+        message: `Semester ${expectedSem} not yet published`,
+        maxAvailableSem: maxSem,
+        expectedSem: expectedSem
+      };
+    }
 
+    // ✅ Only include results up to expected semester
+    let semesterRows = [];
+
+    // check if the expected sem exists in the rows
+    const hasExpected = allRows.some(r => parseInt(r.sem) === expectedSem);
+    
+    if (hasExpected) {
+      // only then include all up to that sem
+      semesterRows = allRows.filter(r => !isNaN(parseInt(r.sem)) && parseInt(r.sem) <= expectedSem);
+    }
+    
+    console.log(`✅ Found ${semesterRows.length} rows for semesters 1-${expectedSem}`);
+    
     // Group by semester
     const semesters = {};
-    filteredResults.forEach(r => {
+    semesterRows.forEach(r => {
       const sem = parseInt(r.sem);
-      if (!semesters[sem]) semesters[sem] = [];
-      semesters[sem].push(r);
+      if (!isNaN(sem)) {
+        if (!semesters[sem]) semesters[sem] = [];
+        semesters[sem].push(r);
+      }
     });
+
+    console.log(`📚 Grouped into semesters:`, Object.keys(semesters).map(s => `Sem ${s}: ${semesters[s].length} subjects`));
 
     // Calculate CGPA per semester + overall
     const semesterCGPAs = {};
@@ -93,36 +164,47 @@ async function fetchResult(registerNo, dob, expectedSem, studentName) {
 
     for (const sem in semesters) {
       const semResults = semesters[sem];
-      const semPoints = semResults.reduce(
+
+      const validRows = semResults.filter(r =>
+        !isNaN(parseFloat(r.credit)) &&
+        !isNaN(parseFloat(r.point))
+      );
+
+      const semPoints = validRows.reduce(
         (acc, row) => acc + parseFloat(row.credit) * parseFloat(row.point),
         0
       );
-      const semCredits = semResults.reduce(
+      const semCredits = validRows.reduce(
         (acc, row) => acc + parseFloat(row.credit),
         0
       );
 
-      const semCGPA = semCredits === 0 ? 0 : (semPoints / semCredits).toFixed(2);
+      const semCGPA = semCredits === 0 ? null : (semPoints / semCredits).toFixed(2);
       semesterCGPAs[sem] = semCGPA;
 
       overallPoints += semPoints;
       overallCredits += semCredits;
+      
+      console.log(`📊 Semester ${sem}: ${validRows.length} valid subjects, CGPA: ${semCGPA}`);
     }
 
-    const overallCGPA = overallCredits === 0 ? 0 : (overallPoints / overallCredits).toFixed(2);
+    const overallCGPA = overallCredits === 0 ? null : (overallPoints / overallCredits).toFixed(2);
+    console.log(`🎯 Overall CGPA for ${studentName}: ${overallCGPA}`);
 
     await browser.close();
 
     return {
       semesterWiseCGPA: semesterCGPAs,
       overallCGPA,
-      allSemesters: semesters
+      allSemesters: semesters, // grouped results
     };
-
   } catch (err) {
-    console.error("❌ Scraper failed:", err.message);
+    console.error(`❌ Scraper failed for ${studentName}:`, err.message);
     await browser.close();
-    return null;
+    return {
+      status: 'error',
+      message: err.message
+    };
   }
 }
 

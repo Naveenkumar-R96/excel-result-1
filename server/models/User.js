@@ -7,7 +7,7 @@ const userSchema = new mongoose.Schema({
   dob: String,
   email: String,
   telegramId: String,
-  currentSem: { type: Number, required: true }, // instead of expectedSem
+  
   notifiedSemesters: { type: [Number], default: [] } // instead of notifiedUpto
 });
 
