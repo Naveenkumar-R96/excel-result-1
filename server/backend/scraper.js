@@ -140,7 +140,7 @@ async function fetchResult(registerNo, dob, expectedSem, studentName) {
     
     if (hasExpected) {
       // only then include all up to that sem
-      semesterRows = allRows.filter(r => !isNaN(parseInt(r.sem)) && parseInt(r.sem) <= expectedSem);
+      semesterRows = allRows.filter(r => !isNaN(parseInt(r.sem)) && parseInt(r.sem) <= maxSem);
     }
     
     console.log(`✅ Found ${semesterRows.length} rows for semesters 1-${expectedSem}`);
