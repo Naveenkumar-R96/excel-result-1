@@ -10,7 +10,8 @@ const mongoose = require("mongoose");
 const userRoutes = require("../routes/userRoutes");
 const User = require("../models/User");
 const fetch = require("node-fetch");
-
+const { storeStudentResult } = require("../services/resultStorageService");
+const resultRoutes  = require("../routes/resultRoutes");
 const app = express();
 app.use(cors());
 app.use(express.json());
@@ -21,6 +22,112 @@ mongoose.connect(process.env.MONGO_URI)
   .catch(err => console.error("❌ MongoDB connection error:", err.message));
 
 app.use("/api/users", userRoutes);
+app.use("/api/results", resultRoutes);
+
+// Enhanced test endpoint with result storage
+app.post("/test-student", async (req, res) => {
+  try {
+    const { regNo } = req.body;
+
+    if (!regNo) {
+      return res.status(400).json({ error: "Registration number is required" });
+    }
+
+    const student = await User.findOne({ regNo }).catch(err => {
+      console.error('Database query error:', err.message);
+      throw new Error('Database query failed');
+    });
+
+    if (!student) {
+      return res.status(404).json({ error: "Student not found" });
+    }
+
+    // ✅ NEW LOGIC: Calculate expected semester
+    const lastNotifiedSem = student.notifiedSemesters && student.notifiedSemesters.length > 0
+      ? Math.max(...student.notifiedSemesters)
+      : 0;
+    const expectedSem = lastNotifiedSem + 1;
+
+    const timeout = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('Test timeout')), 60 * 1000)
+    );
+
+    console.log(`🧪 Testing ${student.name}, last notified: ${lastNotifiedSem}, checking for: ${expectedSem}`);
+
+    const result = await Promise.race([
+      fetchResult(student.regNo, student.dob, expectedSem, student.name),
+      timeout
+    ]);
+
+    // If result is found and has the expected semester, optionally store it
+    let storedResult = null;
+    if (result?.allSemesters?.[expectedSem]) {
+      try {
+        // Store the test result with notification status as false
+        storedResult = await storeStudentResult(
+          student,
+          result,
+          expectedSem,
+          { telegram: false, email: false }
+        );
+        console.log(`💾 Test result stored with ID: ${storedResult._id}`);
+      } catch (storageError) {
+        console.error('Failed to store test result:', storageError.message);
+      }
+    }
+
+    res.json({
+      student: student.name,
+      regNo: student.regNo,
+      lastNotifiedSem: lastNotifiedSem,
+      expectedSem: expectedSem,
+      notifiedSemesters: student.notifiedSemesters || [],
+      result,
+      hasResult: !!result,
+      hasExpectedSem: result?.allSemesters?.[expectedSem] ? true : false,
+      availableSemesters: result?.availableSemesters || [],
+      storedResultId: storedResult?._id || null,
+      timestamp: new Date()
+    });
+  } catch (err) {
+    console.error('Test endpoint error:', err.message);
+    res.status(500).json({
+      error: err.message,
+      timestamp: new Date()
+    });
+  }
+});
+
+// New endpoint to get stored results for a specific student
+app.get("/api/student/:regNo/results", async (req, res) => {
+  try {
+    const { regNo } = req.params;
+    const limit = parseInt(req.query.limit) || 5;
+
+    const { getStudentResults } = require("./services/resultStorageService");
+    const results = await getStudentResults(regNo, limit);
+
+    res.json({
+      regNo: regNo,
+      totalResults: results.length,
+      results: results
+    });
+  } catch (error) {
+    res.status(500).json({ error: "Failed to fetch student results" });
+  }
+});
+
+// New endpoint to get result storage statistics
+app.get("/api/dashboard/stats", async (req, res) => {
+  try {
+    const { getResultStatistics } = require("./services/resultStorageService");
+    const stats = await getResultStatistics();
+
+    res.json(stats);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to fetch statistics" });
+  }
+});
 
 let isCronRunning = false;
 let processingQueue = [];
@@ -70,8 +177,8 @@ cron.schedule("*/2 * * * *", async () => {
             }
 
             // ✅ NEW LOGIC: Calculate expected semester from notifiedSemesters
-            const lastNotifiedSem = student.notifiedSemesters && student.notifiedSemesters.length > 0 
-              ? Math.max(...student.notifiedSemesters) 
+            const lastNotifiedSem = student.notifiedSemesters && student.notifiedSemesters.length > 0
+              ? Math.max(...student.notifiedSemesters)
               : 0;
             const expectedSem = lastNotifiedSem + 1; // Next semester to check
 
@@ -183,7 +290,7 @@ async function processBatchParallel(batch) {
         .sort((a, b) => a - b);
 
       const maxPublishedSem = Math.max(...publishedSemesters);
-      
+
       console.log(`📊 Published semesters for ${student.name}: ${publishedSemesters.join(', ')}`);
       console.log(`📊 Max published semester: ${maxPublishedSem}, New semester detected: ${expectedSem}`);
 
@@ -199,16 +306,18 @@ async function processBatchParallel(batch) {
           const subject = r?.subject || 'N/A';
           const grade = r?.grade || 'N/A';
           const resultStatus = r?.result || 'N/A';
-          
+
           return `   ${code} | ${subject} | ${grade} (${resultStatus})`;
         }).join("\n");
-      
+
         return `📘 Semester ${sem}\n${subjectLines}\n   CGPA: ${result.semesterWiseCGPA?.[sem] || "N/A"}\n`;
       }).join("\n");
-      
+
       const message = `🎓 RESULT PUBLISHED - NEW SEMESTER ${expectedSem}!\n👤 ${student.name} (${student.regNo})\n\n${formattedSubjects}\n📊 Overall CGPA: ${result.overallCGPA || 'N/A'}`;
 
       console.log(`📤 Sending notifications for ${student.name}...`);
+
+      const notificationStatus = { telegram: false, email: false };
 
       // ✅ Send notifications
       const notificationResults = await Promise.allSettled([
@@ -216,13 +325,14 @@ async function processBatchParallel(batch) {
           try {
             await sendTelegramMessage(message);
             console.log(`✅ Telegram sent for ${student.name}`);
+            notificationStatus.telegram = true;
             return { type: 'telegram', status: 'success' };
           } catch (err) {
             console.error(`❌ Telegram failed for ${student.name}:`, err.message);
             return { type: 'telegram', status: 'failed', error: err.message };
           }
         })(),
-        
+
         (async () => {
           try {
             if (!student.email) {
@@ -237,6 +347,7 @@ async function processBatchParallel(batch) {
             const emailHtml = require("./emialHtml")(result);
             await sendEmail(student.email, "🎓 Your Result is Published", emailHtml);
             console.log(`✅ Email sent for ${student.name}`);
+            notificationStatus.email = true;
             return { type: 'email', status: 'success' };
           } catch (err) {
             console.error(`❌ Email failed for ${student.name}:`, err.message);
@@ -245,12 +356,21 @@ async function processBatchParallel(batch) {
         })()
       ]);
 
-      const successful = notificationResults.filter(r => 
+      const successful = notificationResults.filter(r =>
         r.status === 'fulfilled' && r.value.status === 'success'
       );
 
       if (successful.length === 0) {
         throw new Error('All notification methods failed');
+      }
+
+      // 🆕 STORE RESULT DATA IN NEW DATABASE
+      try {
+        await storeStudentResult(student, result, expectedSem, notificationStatus);
+        console.log(`💾 Result data stored successfully for ${student.name}`);
+      } catch (storageError) {
+        console.error(`❌ Failed to store result data for ${student.name}:`, storageError.message);
+        // Don't throw error here - notification was successful, storage failure shouldn't stop the process
       }
 
       // ✅ NEW LOGIC: Update database without currentSem field
@@ -280,10 +400,10 @@ async function processBatchParallel(batch) {
   });
 
   const results = await Promise.allSettled(promises);
-  
+
   const successful = results.filter(r => r.status === 'fulfilled').length;
   const failed = results.filter(r => r.status === 'rejected').length;
-  
+
   console.log(`✅ Batch of ${batch.length} students completed: ${successful} successful, ${failed} failed`);
 }
 
@@ -291,7 +411,7 @@ async function processBatchParallel(batch) {
 app.post("/test-student", async (req, res) => {
   try {
     const { regNo } = req.body;
-    
+
     if (!regNo) {
       return res.status(400).json({ error: "Registration number is required" });
     }
@@ -304,14 +424,14 @@ app.post("/test-student", async (req, res) => {
     if (!student) {
       return res.status(404).json({ error: "Student not found" });
     }
-    
+
     // ✅ NEW LOGIC: Calculate expected semester
-    const lastNotifiedSem = student.notifiedSemesters && student.notifiedSemesters.length > 0 
-      ? Math.max(...student.notifiedSemesters) 
+    const lastNotifiedSem = student.notifiedSemesters && student.notifiedSemesters.length > 0
+      ? Math.max(...student.notifiedSemesters)
       : 0;
     const expectedSem = lastNotifiedSem + 1;
 
-    const timeout = new Promise((_, reject) => 
+    const timeout = new Promise((_, reject) =>
       setTimeout(() => reject(new Error('Test timeout')), 60 * 1000)
     );
 
@@ -321,14 +441,14 @@ app.post("/test-student", async (req, res) => {
       fetchResult(student.regNo, student.dob, expectedSem, student.name),
       timeout
     ]);
-    
-    res.json({ 
-      student: student.name, 
+
+    res.json({
+      student: student.name,
       regNo: student.regNo,
       lastNotifiedSem: lastNotifiedSem,
       expectedSem: expectedSem,
       notifiedSemesters: student.notifiedSemesters || [],
-      result, 
+      result,
       hasResult: !!result,
       hasExpectedSem: result?.allSemesters?.[expectedSem] ? true : false,
       availableSemesters: result?.availableSemesters || [],
@@ -336,7 +456,7 @@ app.post("/test-student", async (req, res) => {
     });
   } catch (err) {
     console.error('Test endpoint error:', err.message);
-    res.status(500).json({ 
+    res.status(500).json({
       error: err.message,
       timestamp: new Date()
     });
@@ -349,7 +469,7 @@ const MAX_PING_FAILURES = 3;
 
 setInterval(() => {
   const pingUrl = process.env.SELF_PING_URL || "http://localhost:3001";
-  
+
   fetch(pingUrl)
     .then(response => {
       if (!response.ok) {
@@ -361,7 +481,7 @@ setInterval(() => {
     .catch(err => {
       consecutivePingFailures++;
       console.error(`⚠️ Self-ping failed (${consecutivePingFailures}/${MAX_PING_FAILURES}):`, err.message);
-      
+
       if (consecutivePingFailures >= MAX_PING_FAILURES) {
         console.error('🚨 Too many consecutive ping failures - service may be unhealthy');
       }
