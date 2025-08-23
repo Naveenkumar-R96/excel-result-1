@@ -16,10 +16,22 @@ const semesterSchema = new mongoose.Schema({
   cgpa: { type: String, default: "N/A" }
 });
 
+// Notification history sub-schema
+const notificationHistorySchema = new mongoose.Schema({
+  semesterDetected: { type: Number, required: true },
+  timestamp: { type: Date, default: Date.now },
+  notificationStatus: {
+    telegram: { type: Boolean, default: false },
+    email: { type: Boolean, default: false }
+  },
+  overallCGPAAtTime: { type: String }
+});
+
 const resultSchema = new mongoose.Schema({
   studentRegNo: { 
     type: String, 
     required: true,
+    unique: true, // One document per student
     index: true 
   },
   studentName: { 
@@ -29,23 +41,41 @@ const resultSchema = new mongoose.Schema({
   studentEmail: { 
     type: String 
   },
+  // ✅ ADD MISSING FIELDS
+  studentYear: { 
+    type: String 
+  },
+  studentSection: { 
+    type: String 
+  },
+  studentDOB: { 
+    type: String 
+  },
+  
   semesters: [semesterSchema],
   overallCGPA: { 
     type: String, 
     default: "N/A" 
   },
-  newSemesterDetected: { 
+  
+  // ✅ TRACK CURRENT STATE
+  currentMaxSemester: { 
     type: Number, 
-    required: true 
+    default: 0 
   },
-  notificationSent: {
-    telegram: { type: Boolean, default: false },
-    email: { type: Boolean, default: false }
+  lastNotificationSemester: { 
+    type: Number, 
+    default: 0 
   },
-  notificationTimestamp: { 
+  
+  // ✅ NOTIFICATION HISTORY (instead of single notification)
+  notificationHistory: [notificationHistorySchema],
+  
+  lastUpdated: { 
     type: Date, 
     default: Date.now 
   },
+  
   // Store the complete result data for future reference
   rawResultData: {
     type: mongoose.Schema.Types.Mixed
@@ -55,8 +85,9 @@ const resultSchema = new mongoose.Schema({
 });
 
 // Index for faster queries
-resultSchema.index({ studentRegNo: 1, newSemesterDetected: 1 });
-resultSchema.index({ notificationTimestamp: -1 });
+resultSchema.index({ studentRegNo: 1 }, { unique: true });
+resultSchema.index({ lastUpdated: -1 });
+resultSchema.index({ currentMaxSemester: 1 });
 
 const Result = mongoose.model("Result", resultSchema);
 

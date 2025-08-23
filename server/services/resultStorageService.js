@@ -2,16 +2,16 @@
 const Result = require("../models/Result");
 
 /**
- * Store student result data when notification is sent
+ * Store/Update student result data when notification is sent (EFFICIENT VERSION)
  * @param {Object} student - Student object from User model
  * @param {Object} result - Result data from scraper
  * @param {Number} newSemester - The newly detected semester number
  * @param {Object} notificationStatus - Status of sent notifications
- * @returns {Promise<Object>} - Stored result document
+ * @returns {Promise<Object>} - Stored/updated result document
  */
 async function storeStudentResult(student, result, newSemester, notificationStatus = {}) {
   try {
-    console.log(`💾 Storing result data for ${student.name} (semester ${newSemester})`);
+    console.log(`💾 Storing/updating result data for ${student.name} (semester ${newSemester})`);
 
     // Transform the result data to match our schema
     const semesters = [];
@@ -38,45 +38,102 @@ async function storeStudentResult(student, result, newSemester, notificationStat
 
     // Sort semesters by semester number
     semesters.sort((a, b) => a.semesterNumber - b.semesterNumber);
+    const maxSemester = semesters.length > 0 ? Math.max(...semesters.map(s => s.semesterNumber)) : 0;
 
-    const resultDocument = new Result({
-      studentRegNo: student.regNo,
-      studentName: student.name,
-      studentEmail: student.email || null,
-      semesters: semesters,
-      overallCGPA: result.overallCGPA || "N/A",
-      newSemesterDetected: newSemester,
-      notificationSent: {
-        telegram: notificationStatus.telegram || false,
-        email: notificationStatus.email || false
+    // ✅ UPDATE OR CREATE - One document per student
+    const savedResult = await Result.findOneAndUpdate(
+      { studentRegNo: student.regNo }, // Find by registration number
+      {
+        $set: {
+          // ✅ Basic student info with missing fields
+          studentName: student.name,
+          studentEmail: student.email || null,
+          studentYear: student.year || null,
+          studentSection: student.section || null, 
+          studentDOB: student.dob || null,
+          
+          // ✅ Complete semester data (replaces old with latest)
+          semesters: semesters,
+          overallCGPA: result.overallCGPA || "N/A",
+          
+          // ✅ Current state tracking
+          currentMaxSemester: maxSemester,
+          lastNotificationSemester: newSemester,
+          lastUpdated: new Date(),
+          
+          // ✅ Raw data for reference
+          rawResultData: result
+        },
+        $push: {
+          // ✅ Add to notification history (keeps track of each notification)
+          notificationHistory: {
+            semesterDetected: newSemester,
+            timestamp: new Date(),
+            notificationStatus: {
+              telegram: notificationStatus.telegram || false,
+              email: notificationStatus.email || false
+            },
+            overallCGPAAtTime: result.overallCGPA || "N/A"
+          }
+        }
       },
-      rawResultData: result // Store complete raw data for reference
-    });
+      { 
+        new: true, // Return updated document
+        upsert: true, // Create if doesn't exist
+        runValidators: true
+      }
+    );
 
-    const savedResult = await resultDocument.save();
-    console.log(`✅ Result data stored successfully for ${student.name} - Document ID: ${savedResult._id}`);
+    console.log(`✅ Result data updated successfully for ${student.name} - Document ID: ${savedResult._id}`);
+    console.log(`📊 Total semesters stored: ${semesters.length}, Notification history: ${savedResult.notificationHistory.length} entries`);
 
     return savedResult;
   } catch (error) {
-    console.error(`❌ Failed to store result data for ${student.name}:`, error.message);
+    console.error(`❌ Failed to store/update result data for ${student.name}:`, error.message);
     throw error;
   }
 }
 
 /**
- * Get stored results for a student
+ * Get notification history for a student
  * @param {String} regNo - Student registration number
- * @param {Number} limit - Number of results to return (default: 10)
- * @returns {Promise<Array>} - Array of stored results
+ * @returns {Promise<Object>} - Student result with notification history
  */
-async function getStudentResults(regNo, limit = 10) {
+async function getStudentNotificationHistory(regNo) {
   try {
-    const results = await Result.find({ studentRegNo: regNo })
-      .sort({ notificationTimestamp: -1 })
-      .limit(limit)
+    const studentResult = await Result.findOne({ studentRegNo: regNo })
+      .select('studentName studentRegNo notificationHistory currentMaxSemester lastNotificationSemester')
       .lean();
     
-    return results;
+    if (!studentResult) {
+      return null;
+    }
+
+    return {
+      student: {
+        name: studentResult.studentName,
+        regNo: studentResult.studentRegNo
+      },
+      currentMaxSemester: studentResult.currentMaxSemester,
+      lastNotificationSemester: studentResult.lastNotificationSemester,
+      totalNotifications: studentResult.notificationHistory.length,
+      notificationHistory: studentResult.notificationHistory.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+    };
+  } catch (error) {
+    console.error(`❌ Failed to fetch notification history for ${regNo}:`, error.message);
+    throw error;
+  }
+}
+
+/**
+ * Get current result data for a student
+ * @param {String} regNo - Student registration number
+ * @returns {Promise<Object>} - Current student result data
+ */
+async function getStudentResults(regNo) {
+  try {
+    const result = await Result.findOne({ studentRegNo: regNo }).lean();
+    return result;
   } catch (error) {
     console.error(`❌ Failed to fetch results for ${regNo}:`, error.message);
     throw error;
@@ -84,7 +141,7 @@ async function getStudentResults(regNo, limit = 10) {
 }
 
 /**
- * Get all stored results with pagination
+ * Get all students with their latest result info
  * @param {Number} page - Page number (default: 1)
  * @param {Number} limit - Results per page (default: 20)
  * @returns {Promise<Object>} - Paginated results
@@ -93,9 +150,10 @@ async function getAllResults(page = 1, limit = 20) {
   try {
     const skip = (page - 1) * limit;
     const results = await Result.find({})
-      .sort({ notificationTimestamp: -1 })
+      .sort({ lastUpdated: -1 })
       .skip(skip)
       .limit(limit)
+      .select('studentRegNo studentName studentYear studentSection currentMaxSemester lastNotificationSemester lastUpdated notificationHistory')
       .lean();
     
     const total = await Result.countDocuments({});
@@ -120,23 +178,51 @@ async function getAllResults(page = 1, limit = 20) {
  */
 async function getResultStatistics() {
   try {
-    const totalNotifications = await Result.countDocuments({});
-    const telegramSent = await Result.countDocuments({ 'notificationSent.telegram': true });
-    const emailSent = await Result.countDocuments({ 'notificationSent.email': true });
-    const uniqueStudents = await Result.distinct('studentRegNo').then(arr => arr.length);
+    const totalStudents = await Result.countDocuments({});
     
+    // Count total notifications sent (sum of all notification history entries)
+    const notificationStats = await Result.aggregate([
+      { $unwind: "$notificationHistory" },
+      {
+        $group: {
+          _id: null,
+          totalNotifications: { $sum: 1 },
+          telegramSent: {
+            $sum: { $cond: ["$notificationHistory.notificationStatus.telegram", 1, 0] }
+          },
+          emailSent: {
+            $sum: { $cond: ["$notificationHistory.notificationStatus.email", 1, 0] }
+          }
+        }
+      }
+    ]);
+
     // Get recent activity (last 7 days)
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
     const recentActivity = await Result.countDocuments({
-      notificationTimestamp: { $gte: sevenDaysAgo }
+      lastUpdated: { $gte: sevenDaysAgo }
     });
 
+    // Get semester distribution
+    const semesterStats = await Result.aggregate([
+      {
+        $group: {
+          _id: "$currentMaxSemester",
+          studentCount: { $sum: 1 }
+        }
+      },
+      { $sort: { _id: 1 } }
+    ]);
+
+    const stats = notificationStats[0] || { totalNotifications: 0, telegramSent: 0, emailSent: 0 };
+
     return {
-      totalNotifications,
-      telegramSent,
-      emailSent,
-      uniqueStudents,
+      totalStudents,
+      totalNotifications: stats.totalNotifications,
+      telegramSent: stats.telegramSent,
+      emailSent: stats.emailSent,
       recentActivity,
+      semesterDistribution: semesterStats,
       lastUpdated: new Date()
     };
   } catch (error) {
@@ -148,6 +234,7 @@ async function getResultStatistics() {
 module.exports = {
   storeStudentResult,
   getStudentResults,
+  getStudentNotificationHistory,
   getAllResults,
   getResultStatistics
 };
