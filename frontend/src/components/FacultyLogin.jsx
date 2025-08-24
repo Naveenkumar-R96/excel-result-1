@@ -133,7 +133,7 @@ const FacultyLogin = ({ setShowFacultyLogin }) => {
 
             <button
               onClick={handlePasswordSubmit}
-              className="w-full bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500"
+              className="w-full bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 cursor-pointer"
             >
               Login
             </button>
@@ -152,7 +152,7 @@ const FacultyLogin = ({ setShowFacultyLogin }) => {
           <div className="flex gap-2">
             <button
               onClick={resetToStudentsList}
-              className="text-blue-600 hover:text-blue-800 px-3 py-1 rounded bg-blue-50"
+              className="text-blue-600 hover:text-blue-800 px-3 py-1 rounded bg-blue-50 cursor-pointer"
             >
               ← Back to Students
             </button>
@@ -289,7 +289,7 @@ const FacultyLogin = ({ setShowFacultyLogin }) => {
           </h2>
           <button
             onClick={resetToClassSelection}
-            className="text-blue-600 hover:text-blue-800 px-3 py-1 rounded bg-blue-50"
+            className="text-blue-600 hover:text-blue-800 px-3 py-1 rounded bg-blue-50 cursor-pointer"
           >
             ← Back to Class Selection
           </button>
@@ -342,7 +342,7 @@ const FacultyLogin = ({ setShowFacultyLogin }) => {
             setPassword('');
             setDashboardStats(null);
           }}
-          className="text-red-600 hover:text-red-800 px-3 py-1 rounded bg-red-50"
+          className="text-red-600 hover:text-red-800 px-3 py-1 rounded bg-red-50 cursor-pointer"
         >
           Logout
         </button>
@@ -381,13 +381,13 @@ const FacultyLogin = ({ setShowFacultyLogin }) => {
                 <button
                   key={year}
                   onClick={() => setSelectedYear(year)}
-                  className={`p-3 rounded-md border-2 transition-colors text-gray-800 ${
+                  className={`p-3 rounded-md border-2 transition-colors text-gray-800 cursor-pointer ${
                     selectedYear === year 
-                      ? 'border-blue-500 bg-blue-50 text-blue-700' 
+                      ? 'border-green-500 bg-blue-50 text-blue-700' 
                       : 'border-gray-300 hover:border-gray-400'
                   }`}
                 >
-                  Year {year}
+                  {year}
                 </button>
               ))}
             </div>
@@ -402,11 +402,11 @@ const FacultyLogin = ({ setShowFacultyLogin }) => {
                   onClick={() => setSelectedSection(section)}
                   className={`p-3 rounded-md border-2 transition-colors text-gray-800 ${
                     selectedSection === section 
-                      ? 'border-blue-500 bg-blue-50 text-blue-700' 
+                      ? 'border-green-500 bg-blue-50 text-blue-700' 
                       : 'border-gray-300 hover:border-gray-400'
                   }`}
                 >
-                  Section {section}
+                  {section}
                 </button>
               ))}
             </div>
@@ -421,12 +421,12 @@ const FacultyLogin = ({ setShowFacultyLogin }) => {
               {loading ? 'Loading Students...' : `View Year ${selectedYear} Section ${selectedSection} Students`}
             </button>
           )}
-
+{/* 
           {selectedYear && selectedSection && studentsList.length === 0 && !loading && (
             <div className="text-center text-gray-500 py-4">
               No students found for Year {selectedYear} Section {selectedSection}
             </div>
-          )}
+          )} */}
 
           {error && (
             <div className="text-red-600 text-sm bg-red-50 p-3 rounded-md">

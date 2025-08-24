@@ -111,8 +111,8 @@ const UserForm = ({ setShowForm }) => {
   };
 
   return (
-    <div className="fixed inset-5 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm overflow-y-auto">
-      <div className="relative bg-white shadow-2xl rounded-2xl w-full max-w-lg p-10 md:p-12 border border-gray-200 my-10">
+    <div className="space-y-4 overflow-y-auto">
+      <div className="relativ">
         {/* Close Button */}
         <button
           onClick={() => setShowForm(false)}
@@ -122,7 +122,7 @@ const UserForm = ({ setShowForm }) => {
         </button>
 
         {/* Title */}
-        <h2 className="text-3xl font-extrabold text-center bg-gradient-to-r from-blue-600 to-blue-800 bg-clip-text text-transparent mb-2">
+        <h2 className="text-3xl font-extrabold text-center bg-gradient-to-r from-blue-600 to-blue-800 bg-clip-text text-transparent mb-2 ">
           🎓 Student Registration
         </h2>
         <p className="text-center text-gray-500 mb-8 text-sm md:text-base">
