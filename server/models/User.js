@@ -8,8 +8,8 @@ const userSchema = new mongoose.Schema({
   email: { type: String, required: true },
   telegramId: { type: String }, // removed comma
   year: { type: Number, required: true }, // make it required and remove default
-  section: { 
-    type: String, 
+  section: {
+    type: String,
     enum: ["A", "B", "C", "D"], // added "D" and removed "Not Provided"
     required: true // make it required
   },
@@ -19,3 +19,9 @@ const userSchema = new mongoose.Schema({
 });
 
 module.exports = mongoose.model("User", userSchema);
+
+
+/* 
+GET http://localhost:3001/api/results
+GET http://localhost:3001/api/results/student/730923106077
+GET http://localhost:3001/api/results/statistics */

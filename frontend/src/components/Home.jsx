@@ -1,9 +1,12 @@
 import React, { useState } from "react";
 import WaveBackground from "./WaveBackground";
 import UserForm from "./UserForm";
-
+import StudentLogin from "./StudentLogin";
+import FacultyLogin from "./FacultyLogin";
 const HeroSection = () => {
   const [showForm, setShowForm] = useState(false);
+  const [showStudentLogin, setShowStudentLogin] = useState(false);
+  const [showFacultyLogin, setShowFacultyLogin] = useState(false);
 
   return (
     <div className="relative min-h-screen bg-black overflow-hidden text-white w-full font-poppins">
@@ -22,6 +25,34 @@ const HeroSection = () => {
         </div>
       )}
 
+      {showStudentLogin && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm px-4">
+          <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-5xl max-h-[90vh] overflow-y-auto relative">
+            <button
+              onClick={() => setShowStudentLogin(false)}
+              className="absolute top-2 right-2 text-black text-xl hover:text-red-600 z-10"
+            >
+              ×
+            </button>
+            <StudentLogin setShowStudentLogin={setShowStudentLogin} />
+          </div>
+        </div>
+      )}
+
+      {showFacultyLogin && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm px-4">
+          <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-6xl max-h-[90vh] overflow-y-auto relative">
+            <button
+              onClick={() => setShowFacultyLogin(false)}
+              className="absolute top-2 right-2 text-black text-xl hover:text-red-600 z-10"
+            >
+              ×
+            </button>
+            <FacultyLogin setShowFacultyLogin={setShowFacultyLogin} />
+          </div>
+        </div>
+      )}
+
       <div className="h-screen ">
         <WaveBackground className="h-screen" />
 
@@ -31,9 +62,21 @@ const HeroSection = () => {
             ResultNotifier
           </div>
           <div className="flex gap-4 flex-wrap justify-center">
+          <button
+              onClick={() => setShowStudentLogin(true)}
+              className="border-2 border-blue-400 px-4 py-2 rounded-md hover:bg-blue-400 hover:text-black transition shadow-[0_0_8px_#60a5fa] cursor-pointer text-sm md:text-base"
+            >
+              Student Login
+            </button>
+            <button
+              onClick={() => setShowFacultyLogin(true)}
+              className="border-2 border-green-400 px-4 py-2 rounded-md hover:bg-green-400 hover:text-black transition shadow-[0_0_8px_#4ade80] cursor-pointer text-sm md:text-base"
+            >
+              Faculty Login
+            </button>
             <button
               onClick={() => setShowForm(true)}
-              className="border-2 border-white px-4 py-2 rounded-md hover:bg-white hover:text-black transition shadow-[0_0_8px_white] cursor-pointer"
+              className="border-2 border-white px-4 py-2 rounded-md hover:bg-white hover:text-black transition shadow-[0_0_8px_white] cursor-pointer text-sm md:text-base"
             >
               Register
             </button>
@@ -77,8 +120,8 @@ const HeroSection = () => {
           </h2>
 
           <p className="text-base sm:text-lg md:text-xl text-gray-300">
-            Hi Excelian, Ever felt like you’re stuck in an endless loop of checking your
-            college result page? 😩{" "}
+            Hi Excelian, Ever felt like you’re stuck in an endless loop of
+            checking your college result page? 😩{" "}
             <span className="text-pink-400 font-semibold">
               Refresh panna refresh panna
             </span>
@@ -117,9 +160,7 @@ const HeroSection = () => {
 
           <p className="text-base sm:text-lg md:text-xl text-gray-300">
             So just chill 😎, let the bot do the job. When result published,{" "}
-            <span className="text-green-400 font-semibold">
-              Gmail sollum!
-            </span>
+            <span className="text-green-400 font-semibold">Gmail sollum!</span>
             <br />
           </p>
         </div>

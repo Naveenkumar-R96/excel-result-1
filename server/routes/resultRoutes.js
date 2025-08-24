@@ -1,145 +1,153 @@
 // routes/resultRoutes.js
-const express = require("express");
+const express = require('express');
 const router = express.Router();
 const { 
-  storeStudentResult, 
   getStudentResults, 
   getAllResults, 
-  getResultStatistics 
-} = require("../services/resultStorageService");
+  getResultStatistics,
+  getStudentNotificationHistory 
+} = require('../services/resultStorageService');
 
-// Get all stored results with pagination
-// GET /api/results?page=1&limit=20
-router.get("/", async (req, res) => {
+// Get individual student result by registration number
+router.get('/student/:regNo', async (req, res) => {
+  try {
+    const { regNo } = req.params;
+    
+    if (!regNo) {
+      return res.status(400).json({ error: 'Registration number is required' });
+    }
+
+    const result = await getStudentResults(regNo);
+    
+    if (!result) {
+      return res.status(404).json({ error: 'Student results not found' });
+    }
+
+    res.json(result);
+  } catch (error) {
+    console.error('Error fetching student result:', error.message);
+    res.status(500).json({ error: 'Failed to fetch student result' });
+  }
+});
+
+// Get all results with pagination and filtering
+router.get('/all', async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 20;
+    const year = req.query.year;
+    const section = req.query.section;
+
+    let results = await getAllResults(page, limit);
     
-    if (page < 1 || limit < 1 || limit > 100) {
-      return res.status(400).json({ 
-        error: "Invalid pagination parameters. Page must be >= 1, limit must be 1-100" 
+    // Apply year and section filters if provided
+    if (year || section) {
+      results.results = results.results.filter(student => {
+        let matches = true;
+        if (year && student.studentYear !== parseInt(year)) {
+          matches = false;
+        }
+        if (section && student.studentSection !== section) {
+          matches = false;
+        }
+        return matches;
       });
     }
 
-    const results = await getAllResults(page, limit);
     res.json(results);
   } catch (error) {
-    console.error("Error fetching results:", error.message);
-    res.status(500).json({ error: "Failed to fetch results" });
+    console.error('Error fetching all results:', error.message);
+    res.status(500).json({ error: 'Failed to fetch results' });
   }
 });
 
-// Get results for a specific student
-// GET /api/results/student/:regNo?limit=10
-router.get("/student/:regNo", async (req, res) => {
+// Get students by year and section
+router.get('/students', async (req, res) => {
+  try {
+    const { year, section } = req.query;
+    
+    if (!year || !section) {
+      return res.status(400).json({ error: 'Year and section are required' });
+    }
+
+    const results = await getAllResults(1, 200); // Get more records for filtering
+    
+    const filteredStudents = results.results
+      .filter(student => 
+        student.studentYear === parseInt(year) && 
+        student.studentSection === section
+      )
+      .map(student => ({
+        studentRegNo: student.studentRegNo,
+        studentName: student.studentName,
+        studentYear: student.studentYear,
+        studentSection: student.studentSection,
+        overallCGPA: student.overallCGPA || 'N/A',
+        currentMaxSemester: student.currentMaxSemester,
+        lastNotificationSemester: student.lastNotificationSemester,
+        lastUpdated: student.lastUpdated
+      }));
+
+    res.json(filteredStudents);
+  } catch (error) {
+    console.error('Error fetching students by class:', error.message);
+    res.status(500).json({ error: 'Failed to fetch students' });
+  }
+});
+
+// Get notification history for a student
+router.get('/student/:regNo/notifications', async (req, res) => {
   try {
     const { regNo } = req.params;
-    const limit = parseInt(req.query.limit) || 10;
     
-    if (!regNo) {
-      return res.status(400).json({ error: "Registration number is required" });
-    }
-
-    if (limit < 1 || limit > 50) {
-      return res.status(400).json({ 
-        error: "Limit must be between 1 and 50" 
-      });
-    }
-
-    const results = await getStudentResults(regNo, limit);
+    const history = await getStudentNotificationHistory(regNo);
     
-    if (results.length === 0) {
-      return res.status(404).json({ 
-        message: "No results found for this student",
-        regNo: regNo
-      });
+    if (!history) {
+      return res.status(404).json({ error: 'Student notification history not found' });
     }
 
-    res.json({
-      regNo: regNo,
-      totalResults: results.length,
-      results: results
-    });
+    res.json(history);
   } catch (error) {
-    console.error("Error fetching student results:", error.message);
-    res.status(500).json({ error: "Failed to fetch student results" });
+    console.error('Error fetching notification history:', error.message);
+    res.status(500).json({ error: 'Failed to fetch notification history' });
   }
 });
 
-// Get statistics about stored results
-// GET /api/results/statistics
-router.get("/statistics", async (req, res) => {
+// Get dashboard statistics
+router.get('/stats', async (req, res) => {
   try {
     const stats = await getResultStatistics();
     res.json(stats);
   } catch (error) {
-    console.error("Error fetching statistics:", error.message);
-    res.status(500).json({ error: "Failed to fetch statistics" });
+    console.error('Error fetching statistics:', error.message);
+    res.status(500).json({ error: 'Failed to fetch statistics' });
   }
 });
 
-// Get results by date range
-// GET /api/results/date-range?startDate=2024-01-01&endDate=2024-12-31&page=1&limit=20
-router.get("/date-range", async (req, res) => {
+// Search students by name or registration number
+router.get('/search', async (req, res) => {
   try {
-    const { startDate, endDate } = req.query;
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 20;
-
-    if (!startDate || !endDate) {
-      return res.status(400).json({ 
-        error: "Both startDate and endDate are required (YYYY-MM-DD format)" 
-      });
+    const { query } = req.query;
+    
+    if (!query) {
+      return res.status(400).json({ error: 'Search query is required' });
     }
 
-    const start = new Date(startDate);
-    const end = new Date(endDate);
+    const results = await getAllResults(1, 200);
     
-    if (isNaN(start.getTime()) || isNaN(end.getTime())) {
-      return res.status(400).json({ 
-        error: "Invalid date format. Use YYYY-MM-DD format" 
-      });
-    }
-
-    if (start > end) {
-      return res.status(400).json({ 
-        error: "Start date cannot be after end date" 
-      });
-    }
-
-    // Set end date to end of day
-    end.setHours(23, 59, 59, 999);
-
-    const Result = require("../models/Result");
-    
-    const skip = (page - 1) * limit;
-    const results = await Result.find({
-      notificationTimestamp: { $gte: start, $lte: end }
-    })
-      .sort({ notificationTimestamp: -1 })
-      .skip(skip)
-      .limit(limit)
-      .lean();
-    
-    const total = await Result.countDocuments({
-      notificationTimestamp: { $gte: start, $lte: end }
-    });
+    const filteredStudents = results.results.filter(student => 
+      student.studentName.toLowerCase().includes(query.toLowerCase()) ||
+      student.studentRegNo.toLowerCase().includes(query.toLowerCase())
+    );
 
     res.json({
-      results,
-      totalResults: total,
-      totalPages: Math.ceil(total / limit),
-      currentPage: page,
-      dateRange: {
-        startDate: startDate,
-        endDate: endDate
-      },
-      hasNext: page * limit < total,
-      hasPrev: page > 1
+      query,
+      totalResults: filteredStudents.length,
+      results: filteredStudents
     });
   } catch (error) {
-    console.error("Error fetching results by date range:", error.message);
-    res.status(500).json({ error: "Failed to fetch results by date range" });
+    console.error('Error searching students:', error.message);
+    res.status(500).json({ error: 'Failed to search students' });
   }
 });
 
