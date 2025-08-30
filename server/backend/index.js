@@ -99,7 +99,7 @@ app.post("/test-student", async (req, res) => {
 });
 app.get("/api/dashboard/stats", async (req, res) => {
   try {
-    const { getResultStatistics } = require("./services/resultStorageService");
+    const { getResultStatistics } = require("../services/resultStorageService");
     const stats = await getResultStatistics();
     res.json(stats);
   } catch (error) {
@@ -110,7 +110,7 @@ app.get("/api/dashboard/stats", async (req, res) => {
 
 app.get("/api/results/all", async (req, res) => {
   try {
-    const { getAllResults } = require("./services/resultStorageService");
+    const { getAllResults } = require("../services/resultStorageService");
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 20;
     
@@ -125,7 +125,7 @@ app.get("/api/results/all", async (req, res) => {
 app.get("/api/results/student/:regNo", async (req, res) => {
   try {
     const { regNo } = req.params;
-    const { getStudentResults } = require("./services/resultStorageService");
+    const { getStudentResults } = require("../services/resultStorageService");
     
     if (!regNo) {
       return res.status(400).json({ error: "Registration number is required" });
@@ -148,7 +148,7 @@ app.get("/api/results/student/:regNo", async (req, res) => {
 app.get("/api/results/students", async (req, res) => {
   try {
     const { year, section } = req.query;
-    const { getAllResults } = require("./services/resultStorageService");
+    const { getAllResults } = require("../services/resultStorageService");
     
     if (!year || !section) {
       return res.status(400).json({ error: "Year and section are required" });
@@ -183,7 +183,7 @@ app.get("/api/results/students", async (req, res) => {
 app.get("/api/results/student/:regNo/notifications", async (req, res) => {
   try {
     const { regNo } = req.params;
-    const { getStudentNotificationHistory } = require("./services/resultStorageService");
+    const { getStudentNotificationHistory } = require("../services/resultStorageService");
     
     const history = await getStudentNotificationHistory(regNo);
     
@@ -202,7 +202,7 @@ app.get("/api/results/student/:regNo/notifications", async (req, res) => {
 app.get("/api/results/search", async (req, res) => {
   try {
     const { query } = req.query;
-    const { getAllResults } = require("./services/resultStorageService");
+    const { getAllResults } = require("../services/resultStorageService");
     
     if (!query) {
       return res.status(400).json({ error: "Search query is required" });
@@ -232,7 +232,7 @@ app.get("/api/student/:regNo/results", async (req, res) => {
     const { regNo } = req.params;
     const limit = parseInt(req.query.limit) || 5;
 
-    const { getStudentResults } = require("./services/resultStorageService");
+    const { getStudentResults } = require("../services/resultStorageService");
     const results = await getStudentResults(regNo, limit);
 
     res.json({
@@ -248,7 +248,7 @@ app.get("/api/student/:regNo/results", async (req, res) => {
 // New endpoint to get result storage statistics
 app.get("/api/dashboard/stats", async (req, res) => {
   try {
-    const { getResultStatistics } = require("./services/resultStorageService");
+    const { getResultStatistics } = require("../services/resultStorageService");
     const stats = await getResultStatistics();
 
     res.json(stats);

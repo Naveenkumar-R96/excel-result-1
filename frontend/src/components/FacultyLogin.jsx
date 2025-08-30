@@ -43,7 +43,7 @@ const FacultyLogin = ({ setShowFacultyLogin }) => {
     
     try {
       // Fetch all results and filter by year and section
-      const response = await fetch(`${API_BASE_URL}/api/results/all?limit=100`);
+      const response = await fetch(`${API_BASE_URL}/api/results/all?limit=250`);
       
       if (response.ok) {
         const data = await response.json();
