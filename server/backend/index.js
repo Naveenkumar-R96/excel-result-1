@@ -11,7 +11,7 @@ const userRoutes = require("../routes/userRoutes");
 const User = require("../models/User");
 const fetch = require("node-fetch");
 const { storeStudentResult } = require("../services/resultStorageService");
-const resultRoutes  = require("../routes/resultRoutes");
+const resultRoutes = require("../routes/resultRoutes");
 const app = express();
 app.use(cors());
 app.use(express.json());
@@ -23,7 +23,8 @@ mongoose.connect(process.env.MONGO_URI)
 
 app.use("/api/users", userRoutes);
 app.use("/api/results", resultRoutes);
-
+//Get dashBoard statistics
+app.use("/api/dashboard", resultRoutes);
 // Enhanced test endpoint with result storage
 app.post("/test-student", async (req, res) => {
   try {
@@ -97,135 +98,6 @@ app.post("/test-student", async (req, res) => {
     });
   }
 });
-app.get("/api/dashboard/stats", async (req, res) => {
-  try {
-    const { getResultStatistics } = require("../services/resultStorageService");
-    const stats = await getResultStatistics();
-    res.json(stats);
-  } catch (error) {
-    console.error('Error fetching dashboard stats:', error.message);
-    res.status(500).json({ error: "Failed to fetch statistics" });
-  }
-});
-
-app.get("/api/results/all", async (req, res) => {
-  try {
-    const { getAllResults } = require("../services/resultStorageService");
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 20;
-    
-    const results = await getAllResults(page, limit);
-    res.json(results);
-  } catch (error) {
-    console.error('Error fetching all results:', error.message);
-    res.status(500).json({ error: "Failed to fetch results" });
-  }
-});
-
-app.get("/api/results/student/:regNo", async (req, res) => {
-  try {
-    const { regNo } = req.params;
-    const { getStudentResults } = require("../services/resultStorageService");
-    
-    if (!regNo) {
-      return res.status(400).json({ error: "Registration number is required" });
-    }
-
-    const result = await getStudentResults(regNo);
-    
-    if (!result) {
-      return res.status(404).json({ error: "Student results not found" });
-    }
-
-    res.json(result);
-  } catch (error) {
-    console.error('Error fetching student result:', error.message);
-    res.status(500).json({ error: "Failed to fetch student result" });
-  }
-});
-
-// Get students by year and section for faculty
-app.get("/api/results/students", async (req, res) => {
-  try {
-    const { year, section } = req.query;
-    const { getAllResults } = require("../services/resultStorageService");
-    
-    if (!year || !section) {
-      return res.status(400).json({ error: "Year and section are required" });
-    }
-
-    const results = await getAllResults(1, 200); // Get more records for filtering
-    
-    const filteredStudents = results.results
-      .filter(student => 
-        student.studentYear === parseInt(year) && 
-        student.studentSection === section
-      )
-      .map(student => ({
-        studentRegNo: student.studentRegNo,
-        studentName: student.studentName,
-        studentYear: student.studentYear,
-        studentSection: student.studentSection,
-        overallCGPA: student.overallCGPA || 'N/A',
-        currentMaxSemester: student.currentMaxSemester,
-        lastNotificationSemester: student.lastNotificationSemester,
-        lastUpdated: student.lastUpdated
-      }));
-
-    res.json(filteredStudents);
-  } catch (error) {
-    console.error('Error fetching students by class:', error.message);
-    res.status(500).json({ error: "Failed to fetch students" });
-  }
-});
-
-// Get notification history for a student
-app.get("/api/results/student/:regNo/notifications", async (req, res) => {
-  try {
-    const { regNo } = req.params;
-    const { getStudentNotificationHistory } = require("../services/resultStorageService");
-    
-    const history = await getStudentNotificationHistory(regNo);
-    
-    if (!history) {
-      return res.status(404).json({ error: "Student notification history not found" });
-    }
-
-    res.json(history);
-  } catch (error) {
-    console.error('Error fetching notification history:', error.message);
-    res.status(500).json({ error: "Failed to fetch notification history" });
-  }
-});
-
-// Search students by name or registration number
-app.get("/api/results/search", async (req, res) => {
-  try {
-    const { query } = req.query;
-    const { getAllResults } = require("../services/resultStorageService");
-    
-    if (!query) {
-      return res.status(400).json({ error: "Search query is required" });
-    }
-
-    const results = await getAllResults(1, 200);
-    
-    const filteredStudents = results.results.filter(student => 
-      student.studentName.toLowerCase().includes(query.toLowerCase()) ||
-      student.studentRegNo.toLowerCase().includes(query.toLowerCase())
-    );
-
-    res.json({
-      query,
-      totalResults: filteredStudents.length,
-      results: filteredStudents
-    });
-  } catch (error) {
-    console.error('Error searching students:', error.message);
-    res.status(500).json({ error: "Failed to search students" });
-  }
-});
-
 // New endpoint to get stored results for a specific student
 app.get("/api/student/:regNo/results", async (req, res) => {
   try {
@@ -245,17 +117,7 @@ app.get("/api/student/:regNo/results", async (req, res) => {
   }
 });
 
-// New endpoint to get result storage statistics
-app.get("/api/dashboard/stats", async (req, res) => {
-  try {
-    const { getResultStatistics } = require("../services/resultStorageService");
-    const stats = await getResultStatistics();
 
-    res.json(stats);
-  } catch (error) {
-    res.status(500).json({ error: "Failed to fetch statistics" });
-  }
-});
 
 let isCronRunning = false;
 let processingQueue = [];
@@ -534,62 +396,6 @@ async function processBatchParallel(batch) {
 
   console.log(`✅ Batch of ${batch.length} students completed: ${successful} successful, ${failed} failed`);
 }
-
-// ✅ Enhanced test endpoint without currentSem
-app.post("/test-student", async (req, res) => {
-  try {
-    const { regNo } = req.body;
-
-    if (!regNo) {
-      return res.status(400).json({ error: "Registration number is required" });
-    }
-
-    const student = await User.findOne({ regNo }).catch(err => {
-      console.error('Database query error:', err.message);
-      throw new Error('Database query failed');
-    });
-
-    if (!student) {
-      return res.status(404).json({ error: "Student not found" });
-    }
-
-    // ✅ NEW LOGIC: Calculate expected semester
-    const lastNotifiedSem = student.notifiedSemesters && student.notifiedSemesters.length > 0
-      ? Math.max(...student.notifiedSemesters)
-      : 0;
-    const expectedSem = lastNotifiedSem + 1;
-
-    const timeout = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error('Test timeout')), 60 * 1000)
-    );
-
-    console.log(`🧪 Testing ${student.name}, last notified: ${lastNotifiedSem}, checking for: ${expectedSem}`);
-
-    const result = await Promise.race([
-      fetchResult(student.regNo, student.dob, expectedSem, student.name),
-      timeout
-    ]);
-
-    res.json({
-      student: student.name,
-      regNo: student.regNo,
-      lastNotifiedSem: lastNotifiedSem,
-      expectedSem: expectedSem,
-      notifiedSemesters: student.notifiedSemesters || [],
-      result,
-      hasResult: !!result,
-      hasExpectedSem: result?.allSemesters?.[expectedSem] ? true : false,
-      availableSemesters: result?.availableSemesters || [],
-      timestamp: new Date()
-    });
-  } catch (err) {
-    console.error('Test endpoint error:', err.message);
-    res.status(500).json({
-      error: err.message,
-      timestamp: new Date()
-    });
-  }
-});
 
 // ✅ Enhanced self-ping
 let consecutivePingFailures = 0;
