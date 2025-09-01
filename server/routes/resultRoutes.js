@@ -33,12 +33,11 @@ router.get('/student/:regNo', async (req, res) => {
 // Get all results with pagination and filtering
 router.get('/all', async (req, res) => {
   try {
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 20;
+    
     const year = req.query.year;
     const section = req.query.section;
 
-    let results = await getAllResults(page, limit);
+    let results = await getAllResults();
     
     // Apply year and section filters if provided
     if (year || section) {

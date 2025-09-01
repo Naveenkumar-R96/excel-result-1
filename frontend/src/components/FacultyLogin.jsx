@@ -43,7 +43,7 @@ const FacultyLogin = ({ setShowFacultyLogin }) => {
     
     try {
       // Fetch all results and filter by year and section
-      const response = await fetch(`${API_BASE_URL}/api/results/all?limit=250`);
+      const response = await fetch(`${API_BASE_URL}/api/results/all`);
       
       if (response.ok) {
         const data = await response.json();
@@ -53,6 +53,7 @@ const FacultyLogin = ({ setShowFacultyLogin }) => {
           student.studentYear === parseInt(selectedYear) && 
           student.studentSection === selectedSection
         );
+        console.log(filteredStudents);
         
         setStudentsList(filteredStudents);
       } else {
@@ -297,6 +298,7 @@ const FacultyLogin = ({ setShowFacultyLogin }) => {
 
         <div className="grid gap-4">
           {studentsList.map((student) => (
+
             <div 
               key={student.studentRegNo}
               className="bg-white rounded-lg shadow-lg p-4 hover:shadow-xl transition-shadow cursor-pointer border-l-4 border-blue-500 hover:border-blue-600"
@@ -307,11 +309,10 @@ const FacultyLogin = ({ setShowFacultyLogin }) => {
                   <h3 className="text-lg font-semibold text-gray-800">{student.studentName}</h3>
                   <p className="text-gray-600">Reg No: {student.studentRegNo}</p>
                   <p className="text-sm text-gray-500">
-                    Max Semester: {student.currentMaxSemester} | 
-                    Last Notification: Semester {student.lastNotificationSemester}
+                    Last Semester: {student.currentMaxSemester} 
                   </p>
                 </div>
-            {console.log(student.overallCGPA)}
+            {console.log(student)}
                 <div className="text-right">
                   <p className="text-sm text-gray-500">Overall CGPA</p>
                   <p className="text-xl font-bold text-green-600">{student.overallCGPA}</p>

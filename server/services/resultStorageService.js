@@ -142,29 +142,25 @@ async function getStudentResults(regNo) {
 
 /**
  * Get all students with their latest result info
- * @param {Number} page - Page number (default: 1)
- * @param {Number} limit - Results per page (default: 20)
+ * - Results per page (default: 20)
  * @returns {Promise<Object>} - Paginated results
  */
-async function getAllResults(page = 1, limit = 20) {
+async function getAllResults() {
   try {
-    const skip = (page - 1) * limit;
+   
     const results = await Result.find({})
       .sort({ lastUpdated: -1 })
-      .skip(skip)
-      .limit(limit)
-      .select('studentRegNo studentName studentYear studentSection currentMaxSemester lastNotificationSemester lastUpdated notificationHistory')
+      
+      .select('studentRegNo studentName studentYear studentSection currentMaxSemester lastNotificationSemester lastUpdated notificationHistory overallCGPA')
       .lean();
+
+      console.log(results);
     
     const total = await Result.countDocuments({});
     
     return {
       results,
       totalResults: total,
-      totalPages: Math.ceil(total / limit),
-      currentPage: page,
-      hasNext: page * limit < total,
-      hasPrev: page > 1
     };
   } catch (error) {
     console.error(`❌ Failed to fetch all results:`, error.message);
