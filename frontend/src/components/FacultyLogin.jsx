@@ -11,11 +11,12 @@ const FacultyLogin = ({ setShowFacultyLogin }) => {
   const [error, setError] = useState('');
   const [dashboardStats, setDashboardStats] = useState(null);
 
-  const API_BASE_URL = 'http://localhost:3001';
+ 
   const years = ['1', '2', '3', '4'];
   const sections = ['A', 'B', 'C', 'D'];
 
   const pass=import.meta.env.VITE_PASS;
+  const API_URL=import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
   const handlePasswordSubmit = async () => {
     if (password === pass) {
@@ -24,7 +25,7 @@ const FacultyLogin = ({ setShowFacultyLogin }) => {
       
       // Fetch dashboard stats after authentication
       try {
-        const response = await fetch(`${API_BASE_URL}/api/dashboard/stats`);
+        const response = await fetch(`${API_URL}/api/dashboard/stats`);
         if (response.ok) {
           const stats = await response.json();
           setDashboardStats(stats);
@@ -45,7 +46,7 @@ const FacultyLogin = ({ setShowFacultyLogin }) => {
     
     try {
       // Fetch all results and filter by year and section
-      const response = await fetch(`${API_BASE_URL}/api/results/all`);
+      const response = await fetch(`${API_URL}/api/results/all`);
       
       if (response.ok) {
         const data = await response.json();
@@ -73,7 +74,7 @@ const FacultyLogin = ({ setShowFacultyLogin }) => {
     setLoading(true);
     
     try {
-      const response = await fetch(`${API_BASE_URL}/api/results/student/${studentRegNo}`);
+      const response = await fetch(`${API_URL}/api/results/student/${studentRegNo}`);
       
       if (response.ok) {
         const data = await response.json();

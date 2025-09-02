@@ -2,6 +2,8 @@
 import React, { useState } from "react";
 import axios from "axios";
 
+const API_URL = import.meta.env.VITE_URL ;
+
 const UserForm = ({ setShowForm }) => {
   const [formData, setFormData] = useState({
     name: "",
@@ -59,7 +61,7 @@ const UserForm = ({ setShowForm }) => {
       const BASE_URL =
         process.env.NODE_ENV === "development"
           ? "http://localhost:3001"
-          : "https://projects2-dv9l.onrender.com";
+          : API_URL;
 
       // Prepare payload with proper type conversion
       const payload = {
