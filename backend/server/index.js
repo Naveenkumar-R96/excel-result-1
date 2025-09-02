@@ -339,6 +339,16 @@ async function processBatchParallel(batch) {
         throw new Error('All notification methods failed');
       }
 
+       // STORE RESULT DATA IN NEW DATABASE (service) — keep after DB updates
+       try {
+        await storeStudentResult(student, result, expectedSem, notificationStatus);
+        console.log(`💾 storeStudentResult succeeded for ${student.name}`);
+      } catch (storageError) {
+        console.error(`❌ storeStudentResult failed for ${student.name}:`, storageError.message);
+      }
+
+      console.log(`✅ Notification & storage process completed for ${student.name}`);
+
       // Determine student year
       const { year: currentYear, nextSemester, graduated } = getCurrentYearFromMaxPublishedSem(maxPublishedSem);
 

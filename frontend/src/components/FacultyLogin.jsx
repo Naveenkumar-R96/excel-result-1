@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-
+import process from 'process';
 const FacultyLogin = ({ setShowFacultyLogin }) => {
   const [password, setPassword] = useState('');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -15,8 +15,10 @@ const FacultyLogin = ({ setShowFacultyLogin }) => {
   const years = ['1', '2', '3', '4'];
   const sections = ['A', 'B', 'C', 'D'];
 
+  const pass=import.meta.env.VITE_PASS;
+
   const handlePasswordSubmit = async () => {
-    if (password === 'faculty@ece') {
+    if (password === pass) {
       setIsAuthenticated(true);
       setError('');
       
@@ -50,7 +52,7 @@ const FacultyLogin = ({ setShowFacultyLogin }) => {
         
         // Filter students by year and section
         const filteredStudents = data.results.filter(student => 
-          student.studentYear === parseInt(selectedYear) && 
+          student.studentYear === selectedYear && 
           student.studentSection === selectedSection
         );
         console.log(filteredStudents);
