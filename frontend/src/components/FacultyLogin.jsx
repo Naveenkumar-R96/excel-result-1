@@ -15,11 +15,11 @@ const FacultyLogin = ({ setShowFacultyLogin }) => {
   const years = ['1', '2', '3', '4'];
   const sections = ['A', 'B', 'C', 'D'];
 
-  const pass=import.meta.env.VITE_PASS;
-  const API_URL=import.meta.env.VITE_API_URL || 'http://localhost:5000';
+  
+  const API_URL='https://excel-result-1.onrender.com' || 'http://localhost:5000';
  console.log('API_URL:', API_URL);
   const handlePasswordSubmit = async () => {
-    if (password === pass) {
+    if (password === "faculty@ece") {
       setIsAuthenticated(true);
       setError('');
       

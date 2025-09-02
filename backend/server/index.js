@@ -428,7 +428,7 @@ let consecutivePingFailures = 0;
 const MAX_PING_FAILURES = 3;
 
 setInterval(() => {
-  const pingUrl = process.env.SELF_PING_URL ;
+  const pingUrl = 'https://excel-result-1.onrender.com' ;
 
   fetch(pingUrl)
     .then(response => {
