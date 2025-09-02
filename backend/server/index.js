@@ -47,6 +47,9 @@ app.use("/api/results", resultRoutes);
 // dashboard alias
 app.use("/api/dashboard", resultRoutes);
 
+app.get("/", (req, res) => {
+  res.send("🎓 Excel Result Notifier Backend is running");
+})
 // Enhanced test endpoint with result storage
 app.post("/test-student", async (req, res) => {
   try {
