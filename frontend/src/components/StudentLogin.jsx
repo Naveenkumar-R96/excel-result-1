@@ -9,8 +9,8 @@ const StudentLogin = ({ setShowStudentLogin }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const API_BASE_URL =import.meta.env.VITE_URL || 'http://localhost:5000';
-
+  const API_BASE_URL =import.meta.env.VITE_API_URL || 'http://localhost:5000';
+console.log('API_BASE_URL:', API_BASE_URL);
   const handleInputChange = (e) => {
     setFormData({
       ...formData,

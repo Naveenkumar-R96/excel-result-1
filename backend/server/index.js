@@ -428,7 +428,7 @@ let consecutivePingFailures = 0;
 const MAX_PING_FAILURES = 3;
 
 setInterval(() => {
-  const pingUrl = process.env.SELF_PING_URL || "http://localhost:5000";
+  const pingUrl = process.env.SELF_PING_URL ;
 
   fetch(pingUrl)
     .then(response => {
