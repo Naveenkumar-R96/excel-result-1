@@ -16,12 +16,10 @@ async function fetchResult(registerNo, dob, expectedSem, studentName) {
 
   try {
     console.log("🌐 Navigating to homepage...");
-    await page.goto("http://103.105.40.112", { timeout: 60000 });
-    console.log("✅ Homepage loaded");
+    await page.goto("http://103.105.40.112/students", { timeout: 60000 });
+    console.log("✅ Student Page loaded");
 
-    console.log(`🔐 Clicking Student Login... for ${studentName}`);
-    await page.click('a[href="/students/"]');
-    await page.waitForLoadState("domcontentloaded");
+  
 
     console.log("📝 Logging in...");
     await page.fill("#txtLoginId", registerNo);

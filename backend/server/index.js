@@ -16,6 +16,9 @@ const app = express();
 const Result = require("../models/Result");
 
 app.use(cors());
+app.use(cors({
+  origin: "https://excel-result-1.onrender.com"
+}));
 app.use(express.json());
 
 // ----------------- Helpers -----------------
@@ -157,7 +160,7 @@ cron.schedule("*/2 * * * *", async () => {
 
     console.log(`👥 Found ${students.length} students to check`);
 
-    const BATCH_SIZE = 3;
+    const BATCH_SIZE = 11;
     let processedCount = 0;
     let errorCount = 0;
 
