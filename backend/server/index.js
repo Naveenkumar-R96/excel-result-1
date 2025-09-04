@@ -160,7 +160,7 @@ cron.schedule("*/2 * * * *", async () => {
 
     console.log(`👥 Found ${students.length} students to check`);
 
-    const BATCH_SIZE = 7;
+    const BATCH_SIZE = 5;
     let processedCount = 0;
     let errorCount = 0;
 
