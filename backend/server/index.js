@@ -18,7 +18,10 @@ const Result = require("../models/Result");
 
 const allowedOrigins = [
   "https://excel-result-1.vercel.app", // ✅ your frontend
-  "https://excel-result-1.onrender.com" // optional (for backend testing)
+  "https://excel-result-1.onrender.com",
+  "http://localhost:5173",               // Vite dev
+  "http://127.0.0.1:5173" 
+  // optional (for backend testing)
 ];
 
 app.use(
