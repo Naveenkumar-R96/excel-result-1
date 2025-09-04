@@ -12,8 +12,8 @@ async function getBrowser() {
       ...(isRender
         ? {} // On Render, use bundled Chromium
         : {
-            executablePath: "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe", // Local Windows Chrome
-          }),
+          executablePath: "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe", // Local Windows Chrome
+        }),
     });
 
     console.log("🚀 Browser launched");
@@ -130,9 +130,14 @@ async function fetchResult(registerNo, dob, expectedSem, studentName) {
       overallCredits += semCredits;
     }
 
-    const overallCGPA =
-      overallCredits === 0 ? null : (overallPoints / overallCredits).toFixed(2);
+    const sumOfSemCGPAs = Object.values(semesterCGPAs)
+      .map(v => parseFloat(v))
+      .filter(v => !isNaN(v))
+      .reduce((a, b) => a + b, 0);
 
+    const overallCGPA =
+      maxSem === 0 ? null : (sumOfSemCGPAs / maxSem).toFixed(2);
+    console.log(`🎉 Successfully calculated CGPA for ${studentName} : ${overallCGPA}`);
     return {
       semesterWiseCGPA: semesterCGPAs,
       overallCGPA,
@@ -143,8 +148,8 @@ async function fetchResult(registerNo, dob, expectedSem, studentName) {
     return { status: "error", message: err.message };
   } finally {
     // ✅ Clean up
-    await page.close().catch(() => {});
-    await context.close().catch(() => {});
+    await page.close().catch(() => { });
+    await context.close().catch(() => { });
   }
 }
 
