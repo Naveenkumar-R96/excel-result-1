@@ -99,7 +99,7 @@ const FacultyLogin = ({ setShowFacultyLogin }) => {
       setError("Please enter a valid student register number.");
       return;
     }
-
+    
     setLoading(true);
     setError("");
 
@@ -133,11 +133,13 @@ const FacultyLogin = ({ setShowFacultyLogin }) => {
     setSelectedStudent(null);
     setStudentsList([]);
     setSelectedYear("");
+    setStudentRegNo("");
     setSelectedSection("");
   };
 
   const resetToStudentsList = () => {
     setSelectedStudent(null);
+    setStudentRegNo("");
   };
 
   // Password input screen
@@ -389,8 +391,8 @@ const FacultyLogin = ({ setShowFacultyLogin }) => {
   if (
     selectedYear &&
     selectedSection &&
-    studentsList.length > 0 &&
-    studentDashBoard
+    studentsList.length > 0 
+    
   ) {
     return (
       <div className="max-w-4xl mx-auto p-6 text-gray-800">
