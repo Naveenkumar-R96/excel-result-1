@@ -220,19 +220,19 @@ const HeroSection = () => {
       </div>
 
       {/* ---------------- ABOUT ---------------- */}
-      <section className="relative  mt-12 px-4 md:px-6" id="about">
+      <section className="relative mt-12 px-4 md:px-6" id="about">
         <div className="max-w-4xl mx-auto py-12 text-white font-poppins space-y-6">
           <h2 className="text-3xl md:text-4xl font-bold text-center text-white">
             Sooo... What Even Is This? 🤔
           </h2>
 
           <p className="text-base sm:text-lg md:text-xl text-gray-300">
-            Hi Excelian, Ever felt like you’re stuck in an endless loop of
+            Hey Excelian, ever felt like you’re stuck in an endless loop of
             checking your college result page? 😩{" "}
             <span className="text-pink-400 font-semibold">
-              Refresh panna refresh panna
+              Refresh after refresh
             </span>
-            , still nothing... and when the site finally works —{" "}
+            , still nothing... and when the site finally loads —{" "}
             <span className="text-yellow-400 font-semibold">it crashes 🙃</span>
           </p>
 
@@ -240,7 +240,7 @@ const HeroSection = () => {
             That’s exactly why we built this! 🔥 Just register your details
             once, and{" "}
             <span className="text-indigo-400 font-semibold">
-              we’ll do the waiting game for you.
+              we’ll do the waiting for you.
             </span>{" "}
             When your result is out,{" "}
             <span className="text-green-400 font-semibold">
@@ -249,25 +249,21 @@ const HeroSection = () => {
           </p>
 
           <p className="text-base sm:text-lg md:text-xl text-gray-300">
-            <span className="text-yellow-300 font-semibold">No stress.</span> No
-            more{" "}
+            <span className="text-yellow-300 font-semibold">No stress.</span>
+            No more{" "}
             <span className="text-pink-400 font-semibold">
-              “enna da site open aagala 😭”
+              “why isn’t the site opening 😭”
             </span>{" "}
-            moments. It's fully auto, built by students like you, for students
-            like you.{" "}
-            <span className="text-indigo-400 font-semibold">
-              Naangaum unga maadhiri dhan bro
-            </span>{" "}
-            — Excelians with{" "}
-            <span className="text-yellow-400 font-semibold">
-              too much anxiety and not enough patience 😅
-            </span>
+            moments. It's fully automatic — built by students like you, for
+            students like you.{" "}
           </p>
 
           <p className="text-base sm:text-lg md:text-xl text-gray-300">
-            So just chill 😎, let the bot do the job. When result published,{" "}
-            <span className="text-green-400 font-semibold">Gmail sollum!</span>
+            So just relax 😎, let the bot handle the work. When your result is
+            published,{" "}
+            <span className="text-green-400 font-semibold">
+              Gmail will tell you!
+            </span>
             <br />
           </p>
         </div>

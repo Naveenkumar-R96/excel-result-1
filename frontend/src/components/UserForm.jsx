@@ -116,12 +116,7 @@ const UserForm = ({ setShowForm }) => {
     <div className="space-y-4 overflow-y-auto">
       <div className="relativ">
         {/* Close Button */}
-        <button
-          onClick={() => setShowForm(false)}
-          className="absolute top-4 right-4 text-gray-400 hover:text-red-500 text-2xl font-bold transition"
-        >
-          ×
-        </button>
+       
 
         {/* Title */}
         <h2 className="text-3xl font-extrabold text-center bg-gradient-to-r from-blue-600 to-blue-800 bg-clip-text text-transparent mb-2 ">
